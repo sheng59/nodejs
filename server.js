@@ -17,12 +17,32 @@ app.get('/', (req, res) => {
     res.send('LINE Bot Server on Vercel 🚀');
 });
 
-// ===== 檢查環境變數（除錯用）=====
+// ===== 檢查環境變數和套件（除錯用）=====
 app.get('/env', (req, res) => {
+    // 檢查 axios 是否載入
+    const axiosVersion = require('axios/package.json').version;
+    const expressVersion = require('express/package.json').version;
+    const nodeVersion = process.version;
+    
     res.json({
-        CHANNEL_ACCESS_TOKEN: CHANNEL_ACCESS_TOKEN ? '✓ 已設定' : '✗ 未設定',
-        CHANNEL_ACCESS_TOKEN_LENGTH: CHANNEL_ACCESS_TOKEN ? CHANNEL_ACCESS_TOKEN.length : 0,
-        NODE_ENV: process.env.NODE_ENV
+        status: 'ok',
+        node_version: nodeVersion,
+        packages: {
+            axios: {
+                installed: !!axios,
+                version: axiosVersion,
+                path: require.resolve('axios')
+            },
+            express: {
+                installed: !!express,
+                version: expressVersion
+            }
+        },
+        environment: {
+            CHANNEL_ACCESS_TOKEN: CHANNEL_ACCESS_TOKEN ? '✓ 已設定' : '✗ 未設定',
+            CHANNEL_ACCESS_TOKEN_LENGTH: CHANNEL_ACCESS_TOKEN ? CHANNEL_ACCESS_TOKEN.length : 0,
+            NODE_ENV: process.env.NODE_ENV
+        }
     });
 });
 
