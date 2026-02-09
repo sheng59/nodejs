@@ -12,7 +12,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get("/", function (req, res) {
-    res.send('Hello Node.js - LINE Bot Server');
+    res.send(`${CHANNEL_ACCESS_TOKEN}`);
 });  
 
 app.post('/sendmessage', async (req, res) => {
