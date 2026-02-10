@@ -24,6 +24,7 @@ app.get('/', (req, res) => {
 		message: 'Shopping Backend API',
 		version: '1.0.0',
 		endpoint: {
+			'/api/products': '取得所有商品',
 			'/api/products/new': '取得新商品',
 			'/api/products/hot': '取得新商品',
 			'/api/products/sendmessage': '發送LINE訊息',
@@ -44,6 +45,40 @@ app.get('/api/env', (req, res) => {
 		},
 		node_env: process.env.NODE_ENV
 	});
+});
+
+app.get('/api/products', async(req, res) => {
+	try {
+		const tables = ['mirror', 'magnet', 'coaster', 'wood', 'painting'];
+		const allProducts = {};
+		
+		for (const table of tables) {
+			const { data, error } = await supabase
+				.from(table)
+				.select('*')
+				.order('id', { ascending: true });
+				
+			if (error) {
+				console.log(`讀取${table}失敗:`, error);
+				continue;
+			}
+			
+			allProducts[table] = data;
+		}
+		
+		res.json({
+			success: true,
+			allProducts,
+			count: object.values(allProducts).reduce((sum, arr) => sum + arr.length, 0)
+		});
+		
+	} catch(error) {
+		console.log('取得商品失敗', error);
+		res.status(500).json({
+			success: false,
+			error: error.message
+		});
+	}
 });
 
 app.get('/api/products/new', async(req, res) => {
