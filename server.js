@@ -18,7 +18,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get('/', (req, res) => {
-	res.json({
+	/*res.json({
 		message: 'Shopping Backend API',
 		version: '1.0.0',
 		endpoint: {
@@ -27,10 +27,11 @@ app.get('/', (req, res) => {
 			'/api/products/sendmessage': '發送LINE訊息',
 			'/api/env': '檢查環境變數'
 		}
-	});
+	});*/
+	res.send('LINE Bot Server on Vercel 🚀');
 });
 
-app.get('/api/env', (req, res) => {
+/*app.get('/api/env', (req, res) => {
 	res.json({
 		supabase: {
 			url: SUPABASE_URL? '已設定':'未設定',
@@ -145,6 +146,6 @@ app.post('/sendmessage', async (req, res) => {
 			error: error.message
 		});
     }
-});
+});*/
 
 module.exports = app;
