@@ -47,7 +47,7 @@ app.get('/api/env', (req, res) => {
 app.get('/api/products/new', async(req, res) => {
 	try {
 		const tables = ['mirror', 'magnet', 'coaster', 'wood', 'painting'];
-		const newProduct = [];
+		const newProducts = [];
 		
 		for (const table of tables) {
 			const { data } = await supabase
@@ -57,7 +57,7 @@ app.get('/api/products/new', async(req, res) => {
 				.order('id', { ascending: true });
 				
 			if (data && data.length > 0) {
-				newProducts.push(...data.map(p => ({ ...p, categoryL table })));
+				newProducts.push(...data.map(p => ({ ...p, category: table })));
 			}
 		}
 		
@@ -79,7 +79,7 @@ app.get('/api/products/new', async(req, res) => {
 app.get('/api/products/hot', async(req, res) => {
 	try {
 		const tables = ['mirror', 'magnet', 'coaster', 'wood', 'painting'];
-		const hotProduct = [];
+		const hotProducts = [];
 		
 		for (const table of tables) {
 			const { data } = await supabase
@@ -89,7 +89,7 @@ app.get('/api/products/hot', async(req, res) => {
 				.order('id', { ascending: true });
 				
 			if (data && data.length > 0) {
-				hotProducts.push(...data.map(p => ({ ...p, categoryL table })));
+				hotProducts.push(...data.map(p => ({ ...p, category: table })));
 			}
 		}
 		
