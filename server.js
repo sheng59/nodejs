@@ -20,7 +20,16 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 app.get('/', (req, res) => {
-	res.send('Shopping Backend API');
+	res.json({
+		message: 'Shopping Backend API',
+		version: '1.0.0',
+		endpoint: {
+			'/api/products/new': '取得新商品',
+			'/api/products/hot': '取得新商品',
+			'/api/products/sendmessage': '發送LINE訊息',
+			'/api/env': '檢查環境變數'
+		}
+	});
 });
 
 module.exports = app;
