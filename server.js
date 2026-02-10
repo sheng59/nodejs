@@ -28,7 +28,6 @@ app.get('/', (req, res) => {
 			'/api/env': '檢查環境變數'
 		}
 	});
-    res.send('Node JS Server on Vercel Running.');
 });
 
 app.get('/api/env', (req, res) => {
