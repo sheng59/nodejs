@@ -110,7 +110,7 @@ app.get('/api/products/hot', async(req, res) => {
 	}
 });
 
-app.post('/sendmessage', async (req, res) => {
+app.post('/api/sendmessage', async (req, res) => {
     try {
         const { userId, message } = req.body;
         
