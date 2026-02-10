@@ -1,66 +1,117 @@
 require('dotenv').config();
 
 const express = require('express');
+const cors = require('cors')
 const axios = require('axios');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 
-// ===== 設定 =====
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const CHANNEL_ACCESS_TOKEN = process.env.CHANNEL_ACCESS_TOKEN;
 
-// ===== 中間件 =====
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ===== 首頁 =====
 app.get('/', (req, res) => {
-    res.send('LINE Bot Server on Vercel 🚀');
+	res.json({
+		message: 'Shopping Backend API',
+		version: '1.0.0',
+		endpoint: {
+			'/api/products/new': '取得新商品',
+			'/api/products/hot': '取得新商品',
+			'/api/products/sendmessage': '發送LINE訊息',
+			'/api/env': '檢查環境變數'
+		}
+	});
+    res.send('Node JS Server on Vercel Running.');
 });
 
-// ===== 檢查環境變數和套件（除錯用）=====
-app.get('/env', (req, res) => {
-    // 檢查 axios 是否載入
-    const axiosVersion = require('axios/package.json').version;
-    const expressVersion = require('express/package.json').version;
-    const nodeVersion = process.version;
-    
-    res.json({
-        status: 'ok',
-        node_version: nodeVersion,
-        packages: {
-            axios: {
-                installed: !!axios,
-                version: axiosVersion,
-                path: require.resolve('axios')
-            },
-            express: {
-                installed: !!express,
-                version: expressVersion
-            }
-        },
-        environment: {
-            CHANNEL_ACCESS_TOKEN: CHANNEL_ACCESS_TOKEN ? '✓ 已設定' : '✗ 未設定',
-            CHANNEL_ACCESS_TOKEN_LENGTH: CHANNEL_ACCESS_TOKEN ? CHANNEL_ACCESS_TOKEN.length : 0,
-            NODE_ENV: process.env.NODE_ENV
-        }
-    });
+app.get('/api/env', (req, res) => {
+	res.json({
+		supabase: {
+			url: SUPABASE_URL? '已設定':'未設定',
+			key_length: SUPABASE_KEY? SUPABASE_KEY.length:0
+		},
+		line: {
+			token: CHANNEL_ACCESS_TOKEN?'已設定':'未設定',
+			token_length: CHANNEL_ACCESS_TOKEN?CHANNEL_ACCESS_TOKEN.length:0
+		},
+		node_env: process.env.NODE_ENV
+	});
 });
 
-// ===== 發送訊息 =====
+app.get('/api/products/new', async(req, res) => {
+	try {
+		const tables = ['mirror', 'magnet', 'coaster', 'wood', 'painting'];
+		const newProduct = [];
+		
+		for (const table of tables) {
+			const { data } = await supabase
+				.from(table)
+				.select('*')
+				.eq('jarr', true)
+				.order('id', { ascending: true });
+				
+			if (data && data.length > 0) {
+				newProducts.push(...data.map(p => ({ ...p, categoryL table })));
+			}
+		}
+		
+		res.json({
+			success: true,
+			newProducts,
+			count: newProducts.length
+		});
+		
+	} catch(error) {
+		console.log('取得新商品失敗', error);
+		res.status(500).json({
+			success: false,
+			error: error.message
+		});
+	}
+});
+
+app.get('/api/products/hot', async(req, res) => {
+	try {
+		const tables = ['mirror', 'magnet', 'coaster', 'wood', 'painting'];
+		const hotProduct = [];
+		
+		for (const table of tables) {
+			const { data } = await supabase
+				.from(table)
+				.select('*')
+				.eq('hot', true)
+				.order('id', { ascending: true });
+				
+			if (data && data.length > 0) {
+				hotProducts.push(...data.map(p => ({ ...p, categoryL table })));
+			}
+		}
+		
+		res.json({
+			success: true,
+			hotProducts,
+			count: hotProducts.length
+		});
+		
+	} catch(error) {
+		console.log('取得熱門商品失敗', error);
+		res.status(500).json({
+			success: false,
+			error: error.message
+		});
+	}
+});
+
 app.post('/sendmessage', async (req, res) => {
     try {
-        const orderData = req.body;
-        
-        // 驗證必要欄位
-        const requiredFields = ['userId', 'message'];
-        for (const field of requiredFields) {
-            if (!(field in orderData)) {
-                return res.status(400).json({
-                    error: `Missing required field: ${field}`,
-                    message: 'Please provide all required order information'
-                });
-            }
-        }
+        const { userId, message } = req.body;
         
         // 設定 LINE API 請求
         const headers = {
@@ -69,10 +120,10 @@ app.post('/sendmessage', async (req, res) => {
         };
         
         const body = {
-            to: orderData.userId,
+            to: userId,
             messages: [{
                 type: 'text',
-                text: orderData.message
+                text: message
             }]
         };
         
@@ -83,31 +134,18 @@ app.post('/sendmessage', async (req, res) => {
             { headers }
         );
         
-        // 回傳成功
-        res.status(response.status).json({
-            status: 'success',
-            message: 'Message sent to LINE',
-            formatted_message: orderData.message
-        });
+        res.json({
+			success: true,
+			message: 'LINE 訊息發送',
+			to: userId
+		});
         
     } catch (error) {
-        console.error('Error:', error.message);
-        
-        if (error.response) {
-            // LINE API 錯誤
-            return res.status(error.response.status).json({
-                error: error.response.data,
-                message: '發送失敗 - LINE API 錯誤'
-            });
-        }
-        
-        // 其他錯誤
         res.status(500).json({
-            error: error.message,
-            message: '發送失敗'
-        });
+			success: false,
+			error: error.message
+		});
     }
 });
 
-// ===== 匯出為 Vercel Serverless Function（重要！）=====
 module.exports = app;
