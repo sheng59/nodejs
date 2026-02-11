@@ -29,6 +29,11 @@ app.get('/', (req, res) => {
 		version: '1.0.0',
 		endpoint: {
 			'GET /api/env': '檢查環境變數',
+			'GET /api/auth/user': '檢查當強登入用戶',
+			'GET /api/auth/login': '處理登入',
+			'GET /api/auth/logout': '處理登出',
+			'GET /api/auth/signup': '註冊新用戶',
+			'GET /api/env': '檢查環境變數',
 			'GET /api/products': '取得所有商品',
 			'GET /api/products/new': '取得新商品',
 			'GET /api/products/hot': '取得熱門商品',
@@ -56,6 +61,182 @@ app.get('/api/env', (req, res) => {
 		},
 		node_env: process.env.NODE_ENV
 	});
+});
+
+// 檢查當前登入用戶
+app.get('/api/auth/user', async (req, res) => {
+    try {
+        const { authorization } = req.headers;
+        
+        if (!authorization) {
+            return res.json({
+                success: false,
+                user: null
+            });
+        }
+        
+        // 從 Authorization header 獲取 token
+        const token = authorization.replace('Bearer ', '');
+        
+        // 使用 Supabase 驗證 session
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+        
+        if (error) {
+            return res.json({
+                success: false,
+                user: null
+            });
+        }
+        
+        res.json({
+            success: true,
+            user: {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                created_at: user.created_at
+            }
+        });
+        
+    } catch (error) {
+        console.error('檢查用戶失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// 處理登入
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        // 驗證必要欄位
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                error: '請提供電子郵件和密碼'
+            });
+        }
+        
+        // 使用 Supabase 處理登入
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
+        
+        if (error) {
+            return res.status(401).json({
+                success: false,
+                error: error.message
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: '登入成功',
+            user: {
+                id: data.user.id,
+                email: data.user.email,
+                role: data.user.role
+            },
+            session: {
+                access_token: data.session.access_token,
+                refresh_token: data.session.refresh_token,
+                expires_at: data.session.expires_at
+            }
+        });
+        
+    } catch (error) {
+        console.error('登入失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// 處理登出
+app.post('/api/auth/logout', async (req, res) => {
+    try {
+        const { authorization } = req.headers;
+        
+        if (!authorization) {
+            return res.status(400).json({
+                success: false,
+                error: '未提供認證資訊'
+            });
+        }
+        
+        // 從 Authorization header 獲取 token
+        const token = authorization.replace('Bearer ', '');
+        
+        // 使用 Supabase 處理登出
+        const { error } = await supabase.auth.signOut(token);
+        
+        if (error) {
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: '登出成功'
+        });
+        
+    } catch (error) {
+        console.error('登出失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// 註冊新用戶（可選）
+app.post('/api/auth/signup', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                error: '請提供電子郵件和密碼'
+            });
+        }
+        
+        // 使用 Supabase 註冊新用戶
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password
+        });
+        
+        if (error) {
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: '註冊成功，請檢查電子郵件進行驗證',
+            user: {
+                id: data.user.id,
+                email: data.user.email
+            }
+        });
+        
+    } catch (error) {
+        console.error('註冊失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
 // ===== 取得所有商品 =====
@@ -236,122 +417,60 @@ app.get('/api/products/:category', async (req, res) => {
 // ===== 建立訂單 =====
 app.post('/api/orders', async (req, res) => {
     try {
-        const { 
-            buyer_name, 
-            buyer_email, 
-            buyer_phone,
-            recipient_name,
-            recipient_email,
-            recipient_phone,
-            recipient_address,
-            cart_items,
-            notes
-        } = req.body;
-
-        // 驗證必要欄位
-        if (!buyer_name || !buyer_email || !cart_items || cart_items.length === 0) {
-            return res.status(400).json({
-                success: false,
-                error: '缺少必要欄位'
-            });
+        const { orderData, orderItems } = req.body;
+        
+        // 驗證
+        if (!orderData || !orderItems || !Array.isArray(orderItems)) {
+            return res.status(400).json({ error: '格式錯誤' });
         }
 
-        // 計算總金額
-        const totalAmount = cart_items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const shippingFee = 100; // 運費
-        const discountAmount = 0; // 折扣
-
-        // 產生訂單編號
-        const orderNumber = `ORD${Date.now()}`;
-
-        // 建立訂單資料
-        const orderData = {
-            order_number: orderNumber,
-            order_date: new Date().toISOString(),
-            buyer_name,
-            buyer_email,
-            buyer_phone,
-            recipient_name,
-            recipient_email,
-            recipient_phone,
-            recipient_address,
-            order_status: 'pending',
-            payment_method: 'Line Pay',
-            payment_status: 'unpaid',
-            total_amount: totalAmount,
-            shipping_fee: shippingFee,
-            discount_amount: discountAmount,
-            notes: notes || ''
-        };
-
         // 插入訂單
-        const { data: order, error: orderError } = await supabase
+        const {  data: order, error: orderError } = await supabase
             .from('orders')
             .insert([orderData])
             .select()
             .single();
 
         if (orderError) {
-            throw orderError;
+            console.error('❌ 訂單插入失敗:', orderError);
+            return res.status(400).json({ 
+                error: '訂單插入失敗',
+                details: orderError.message
+            });
         }
-
-        // 建立訂單項目
-        const orderItems = cart_items.map(item => ({
-            order_id: order.id,
-            product_id: item.datacode,
-            product_name: `${item.feature}樣式${item.category_cn}`,
-            unit_price: item.price,
-            quantity: item.quantity,
-            subtotal: item.price * item.quantity
+		
+        // 處理商品
+        const itemsToInsert = orderItems.map(item => ({
+            ...item,
+            order_id: order.id
         }));
 
         const { error: itemsError } = await supabase
             .from('order_items')
-            .insert(orderItems);
+            .insert(itemsToInsert);
 
         if (itemsError) {
-            throw itemsError;
+            console.error('❌ 訂單項目插入失敗:', itemsError);
+            return res.status(400).json({ 
+                error: '訂單項目插入失敗',
+                details: itemsError.message
+            });
         }
 
-        // 發送 LINE 訊息通知
-        const lineMessage = `
-			訂單建立成功！
-
-			訂單編號: ${orderNumber}
-			客戶姓名: ${buyer_name}
-			聯絡電話: ${buyer_phone}
-			訂單金額: $${totalAmount}
-
-			商品明細:
-			${cart_items.map(item => `• ${item.feature}樣式${item.category_cn} x ${item.quantity} = $${item.price * item.quantity}`).join('\n')}
-
-			總計: $${totalAmount + shippingFee - discountAmount}
-        `.trim();
-
-        await sendLineMessage(LINE_USER_ID, lineMessage);
-
-        res.json({
-            success: true,
-            message: '訂單建立成功',
-            order: {
-                id: order.id,
-                order_number: orderNumber,
-                total_amount: totalAmount
-            },
-            line_notification: '✓ 已發送 LINE 通知'
+        res.json({ 
+            success: true, 
+            order_id: order.id, 
+            items_count: itemsToInsert.length 
         });
 
     } catch (error) {
-        console.error('建立訂單失敗:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
+        console.error('❌', error.message);
+        res.status(500).json({ error: error.message });
     }
 });
 
 // ===== 取得訂單資訊 =====
-app.get('/api/orders/:id', async (req, res) => {
+/*app.get('/api/orders/:id', async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -389,10 +508,10 @@ app.get('/api/orders/:id', async (req, res) => {
             error: error.message
         });
     }
-});
+});*/
 
 // ===== 取得所有訂單 =====
-app.get('/api/orders', async (req, res) => {
+/*app.get('/api/orders', async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('orders')
@@ -416,7 +535,7 @@ app.get('/api/orders', async (req, res) => {
             error: error.message
         });
     }
-});
+});*/
 
 // ===== 發送 LINE 訊息函數 =====
 async function sendLineMessage(userId, message) {
@@ -511,4 +630,8 @@ app.put('/api/products/:category/:id/stock', async (req, res) => {
     }
 });
 
-module.exports = app;
+
+app.listen(3000, () => {
+  console.log(`Server running on port:${3000}/`)
+})
+//module.exports = app;
