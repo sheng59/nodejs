@@ -10,8 +10,8 @@ const app = express();
 // ===== 設定 =====
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
-const CHANNEL_ACCESS_TOKEN = process.env.CHANNEL_ACCESS_TOKEN;
-const LINE_USER_ID = process.env.LINE_USER_ID;
+const CHANNEL_ACCESS_TOKEN = process.env.CHANNEL_ACCESS_TOKEN || "N03jvw1MeewY85pihAGpGZXPaHCHFfRmxY07hDB++uF9sg4Eh9jrkVZZcjzDpbUl5pFu5gtltDeIStWx51Yq/y7yJvV9MIjzPSVXgH8my95amCvbxNTGBG6jqEQS5t1QtNcSunhidGM+hFNOmQ6bAAdB04t89/1O/w1cDnyilFU=";
+const LINE_USER_ID = process.env.LINE_USER_ID || "U9f44bf9ba0f448f57ca9d6431d8453d5";
 
 // ===== 初始化 =====
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -417,7 +417,7 @@ app.get('/api/products/:category', async (req, res) => {
 // ===== 建立訂單 =====
 app.post('/api/orders', async (req, res) => {
     try {
-        const { orderData, orderItems } = req.body;
+        const { orderData, orderItems, orderMessage } = req.body;
         
         // 驗證
         if (!orderData || !orderItems || !Array.isArray(orderItems)) {
@@ -456,11 +456,25 @@ app.post('/api/orders', async (req, res) => {
                 details: itemsError.message
             });
         }
+		
+		let lineStatus = '未發送';
+		
+		if (orderMessage && CHANNEL_ACCESS_TOKEN) {
+			try {
+				await sendLineMessage(LINE_USER_ID, orderMessage);
+				lineStatus = '✓ 已發送';
+			} catch (lineError) {
+				console.error('⚠️ LINE 訊息發送失敗:', lineError.message);
+				lineStatus = `✗ 失敗: ${lineError.message}`;
+			}
+		}
 
         res.json({ 
             success: true, 
             order_id: order.id, 
-            items_count: itemsToInsert.length 
+            items_count: itemsToInsert.length,
+			line_notification: lineStatus,
+            message: '訂單建立成功'
         });
 
     } catch (error) {
@@ -470,7 +484,7 @@ app.post('/api/orders', async (req, res) => {
 });
 
 // ===== 取得訂單資訊 =====
-/*app.get('/api/orders/:id', async (req, res) => {
+app.get('/api/orders/:id', async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -508,10 +522,10 @@ app.post('/api/orders', async (req, res) => {
             error: error.message
         });
     }
-});*/
+});
 
 // ===== 取得所有訂單 =====
-/*app.get('/api/orders', async (req, res) => {
+app.get('/api/orders', async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('orders')
@@ -535,7 +549,7 @@ app.post('/api/orders', async (req, res) => {
             error: error.message
         });
     }
-});*/
+});
 
 // ===== 發送 LINE 訊息函數 =====
 async function sendLineMessage(userId, message) {
