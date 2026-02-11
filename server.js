@@ -30,10 +30,10 @@ app.get('/', (req, res) => {
 		endpoint: {
 			'GET /api/env': '檢查環境變數',
 			'GET /api/products': '取得所有商品',
-			'GET /api/products/:category': '取得特定類別商品',
 			'GET /api/products/new': '取得新商品',
 			'GET /api/products/hot': '取得熱門商品',
 			'GET /api/products/search': '搜尋商品',
+			'GET /api/products/:category': '取得特定類別商品',
 			'POST /api/orders': '建立訂單',
 			'GET /api/orders/:id': '取得訂單資訊',
 			'GET /api/orders': '取得所有訂單',
@@ -92,35 +92,6 @@ app.get('/api/products', async(req, res) => {
 		});
 	}
 });
-
-// ===== 取得特定類別商品 =====
-/*app.get('/api/products/:category', async (req, res) => {
-    try {
-        const { category } = req.params;
-        const { data, error } = await supabase
-            .from(category)
-            .select('*')
-            .order('id', { ascending: true });
-
-        if (error) {
-            throw error;
-        }
-
-        res.json({
-            success: true,
-            category: category,
-             data,
-            count: data.length
-        });
-
-    } catch (error) {
-        console.error('取得商品失敗:', error);
-        res.status(400).json({
-            success: false,
-            error: error.message
-        });
-    }
-});*/
 
 // ===== 取得新商品 (jarr = true) =====
 app.get('/api/products/new', async(req, res) => {
@@ -227,6 +198,35 @@ app.get('/api/products/search', async (req, res) => {
     } catch (error) {
         console.error('搜尋商品失敗:', error);
         res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// ===== 取得特定類別商品 =====
+app.get('/api/products/:category', async (req, res) => {
+    try {
+        const { category } = req.params;
+        const { data, error } = await supabase
+            .from(category)
+            .select('*')
+            .order('id', { ascending: true });
+
+        if (error) {
+            throw error;
+        }
+
+        res.json({
+            success: true,
+            category: category,
+             data,
+            count: data.length
+        });
+
+    } catch (error) {
+        console.error('取得商品失敗:', error);
+        res.status(400).json({
             success: false,
             error: error.message
         });
