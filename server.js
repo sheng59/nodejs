@@ -123,69 +123,91 @@ app.get('/api/products/:category', async (req, res) => {
 });
 
 // ===== 取得新商品 (jarr = true) =====
-app.get('/api/products/new', async(req, res) => {
-	try {
-		const tables = ['mirror', 'magnet', 'coaster', 'wood', 'painting'];
-		const newProducts = [];
-		
-		for (const table of tables) {
-			const { data } = await supabase
-				.from(table)
-				.select('*')
-				.eq('jarr', true)
-				.order('id', { ascending: true });
-				
-			if (data && data.length > 0) {
-				newProducts.push(...data.map(p => ({ ...p, category: table })));
-			}
-		}
-		
-		res.json({
-			success: true,
-			newProducts,
-			count: newProducts.length
-		});
-		
-	} catch(error) {
-		console.log('取得新商品失敗', error);
-		res.status(500).json({
-			success: false,
-			error: error.message
-		});
-	}
+app.get('/api/products/new', async (req, res) => {
+    try {
+        const tables = ['mirror', 'magnet', 'coaster', 'wood', 'painting'];
+        const newProducts = [];
+        const errors = [];
+
+        for (const table of tables) {
+            const { data, error } = await supabase
+                .from(table)
+                .select('*')
+                .eq('jarr', true)
+                .order('id', { ascending: true });
+
+            if (error) {
+                console.error(`讀取 ${table} 失敗:`, error.message);
+                errors.push({
+                    table: table,
+                    error: error.message
+                });
+                continue;
+            }
+
+            if (data && data.length > 0) {
+                newProducts.push(...data.map(p => ({ ...p, category: table })));
+            }
+        }
+
+        res.json({
+            success: true,
+            newProducts,
+            count: newProducts.length,
+            errors: errors.length > 0 ? errors : undefined
+        });
+        
+    } catch (error) {
+        console.error('取得新商品失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
 // ===== 取得熱門商品 (hot = true) =====
-app.get('/api/products/hot', async(req, res) => {
-	try {
-		const tables = ['mirror', 'magnet', 'coaster', 'wood', 'painting'];
-		const hotProducts = [];
-		
-		for (const table of tables) {
-			const { data } = await supabase
-				.from(table)
-				.select('*')
-				.eq('hot', true)
-				.order('id', { ascending: true });
-				
-			if (data && data.length > 0) {
-				hotProducts.push(...data.map(p => ({ ...p, category: table })));
-			}
-		}
-		
-		res.json({
-			success: true,
-			hotProducts,
-			count: hotProducts.length
-		});
-		
-	} catch(error) {
-		console.log('取得熱門商品失敗', error);
-		res.status(500).json({
-			success: false,
-			error: error.message
-		});
-	}
+app.get('/api/products/hot', async (req, res) => {
+    try {
+        const tables = ['mirror', 'magnet', 'coaster', 'wood', 'painting'];
+        const hotProducts = [];
+        const errors = [];
+
+        for (const table of tables) {
+            const { data, error } = await supabase
+                .from(table)
+                .select('*')
+                .eq('hot', true)
+                .order('id', { ascending: true });
+
+            if (error) {
+                console.error(`讀取 ${table} 失敗:`, error.message);
+                errors.push({
+                    table: table,
+                    error: error.message
+                });
+                continue;
+            }
+
+            if (data && data.length > 0) {
+                hotProducts.push(...data.map(p => ({ ...p, category: table })));
+            }
+        }
+
+        res.json({
+            success: true,
+            hotProducts,
+            count: hotProducts.length,
+            errors: errors.length > 0 ? errors : undefined
+        });
+        
+    } catch (error) {
+        console.error('取得熱門商品失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
 // ===== 搜尋商品 =====
