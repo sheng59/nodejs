@@ -77,18 +77,34 @@ app.get('/api/auth/check', async (req, res) => {
         }
         
         const token = authorization.replace('Bearer ', '');
-        const { user, error } = await supabase.auth.getUser(token);
-        
-        if (error || !user) {
-            return res.json({ 
+		console.log('🔑 收到的 Token:', token.substring(0, 20) + '...'); // 只打印前20字符
+		
+        const { data, error } = await supabase.auth.getUser(token);
+	
+		console.log('📊 Supabase 返回:', { data, error });
+		
+        if (error) {
+            console.log('❌ Supabase 錯誤:', error);
+            return res.status(401).json({ 
                 logged_in: false,
-                message: '認證無效'
+                message: error.message || '認證無效'
             });
         }
+		
+		if (!data || !data.user) {
+            console.log('❌ 無效的用戶數據:', data);
+            return res.status(401).json({ 
+                logged_in: false,
+                message: '無效的 token'
+            });
+        }
+		
+		const user = data.user;
+        console.log('✅ 用戶認證成功:', user.email);
         
         res.json({
             logged_in: true,
-            user: {
+            data: {
                 id: user.id,
                 email: user.email,
                 role: user.role
