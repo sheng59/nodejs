@@ -702,7 +702,8 @@ app.put('/api/products/:category/:id/stock', async (req, res) => {
 });
 
 
-app.listen(3000, () => {
+/*app.listen(PORT, () => {
   console.log(`Server running on port:${3000}/`)
-})
-//module.exports = app;
+})*/
+
+module.exports = app;
