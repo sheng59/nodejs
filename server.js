@@ -8,8 +8,8 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 
 // ===== 設定 =====
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://yvemaakibhtbtohrenjc.supabase.co";
+const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2ZW1hYWtpYmh0YnRvaHJlbmpjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTg1ODY2MywiZXhwIjoyMDcxNDM0NjYzfQ.q_HbjUVdXvM4U9LGuyUmk_NjiKFegG3Re5ydTTYdQi8";
 const CHANNEL_ACCESS_TOKEN = process.env.CHANNEL_ACCESS_TOKEN || "N03jvw1MeewY85pihAGpGZXPaHCHFfRmxY07hDB++uF9sg4Eh9jrkVZZcjzDpbUl5pFu5gtltDeIStWx51Yq/y7yJvV9MIjzPSVXgH8my95amCvbxNTGBG6jqEQS5t1QtNcSunhidGM+hFNOmQ6bAAdB04t89/1O/w1cDnyilFU=";
 const LINE_USER_ID = process.env.LINE_USER_ID || "U9f44bf9ba0f448f57ca9d6431d8453d5";
 
@@ -29,9 +29,9 @@ app.get('/', (req, res) => {
 		version: '1.0.0',
 		endpoint: {
 			'GET /api/env': '檢查環境變數',
-			'GET /api/auth/user': '檢查當強登入用戶',
-			'GET /api/auth/login': '處理登入',
-			'GET /api/auth/logout': '處理登出',
+			'GET /api/auth/check': '檢查登入狀態',
+			'POST /api/auth/login': '處理登入',
+			'POST /api/auth/logout': '處理登出',
 			'GET /api/auth/signup': '註冊新用戶',
 			'GET /api/env': '檢查環境變數',
 			'GET /api/products': '取得所有商品',
@@ -43,6 +43,7 @@ app.get('/', (req, res) => {
 			'GET /api/orders/:id': '取得訂單資訊',
 			'GET /api/orders': '取得所有訂單',
 			'POST /api/line/test': '測試LINE訊息',
+			'POST /api/sync': '資料庫同步',
 			'PUT　/api/products/:category/:id/stock': '搜尋商品'
 		}
 	});
@@ -63,46 +64,42 @@ app.get('/api/env', (req, res) => {
 	});
 });
 
-// 檢查當前登入用戶
-app.get('/api/auth/user', async (req, res) => {
+// 檢查登入狀態
+app.get('/api/auth/check', async (req, res) => {
     try {
         const { authorization } = req.headers;
         
         if (!authorization) {
-            return res.json({
-                success: false,
-                user: null
+            return res.json({ 
+                logged_in: false,
+                message: '未提供認證資訊'
             });
         }
         
-        // 從 Authorization header 獲取 token
         const token = authorization.replace('Bearer ', '');
+        const { user, error } = await supabase.auth.getUser(token);
         
-        // 使用 Supabase 驗證 session
-        const { data: { user }, error } = await supabase.auth.getUser(token);
-        
-        if (error) {
-            return res.json({
-                success: false,
-                user: null
+        if (error || !user) {
+            return res.json({ 
+                logged_in: false,
+                message: '認證無效'
             });
         }
         
         res.json({
-            success: true,
+            logged_in: true,
             user: {
                 id: user.id,
                 email: user.email,
-                role: user.role,
-                created_at: user.created_at
+                role: user.role
             }
         });
         
     } catch (error) {
-        console.error('檢查用戶失敗:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message
+        console.error('檢查登入狀態失敗:', error);
+        res.status(500).json({ 
+            logged_in: false,
+            error: error.message 
         });
     }
 });
@@ -112,24 +109,22 @@ app.post('/api/auth/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         
-        // 驗證必要欄位
         if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                error: '請提供電子郵件和密碼'
+            return res.status(400).json({ 
+                success: false, 
+                error: '請提供電子郵件和密碼' 
             });
         }
         
-        // 使用 Supabase 處理登入
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password
         });
         
         if (error) {
-            return res.status(401).json({
-                success: false,
-                error: error.message
+            return res.status(401).json({ 
+                success: false, 
+                error: error.message 
             });
         }
         
@@ -138,21 +133,19 @@ app.post('/api/auth/login', async (req, res) => {
             message: '登入成功',
             user: {
                 id: data.user.id,
-                email: data.user.email,
-                role: data.user.role
+                email: data.user.email
             },
             session: {
                 access_token: data.session.access_token,
-                refresh_token: data.session.refresh_token,
-                expires_at: data.session.expires_at
+                refresh_token: data.session.refresh_token
             }
         });
         
     } catch (error) {
         console.error('登入失敗:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
         });
     }
 });
@@ -163,78 +156,126 @@ app.post('/api/auth/logout', async (req, res) => {
         const { authorization } = req.headers;
         
         if (!authorization) {
-            return res.status(400).json({
-                success: false,
-                error: '未提供認證資訊'
+            return res.status(400).json({ 
+                success: false, 
+                error: '未提供認證資訊' 
             });
         }
         
-        // 從 Authorization header 獲取 token
         const token = authorization.replace('Bearer ', '');
-        
-        // 使用 Supabase 處理登出
         const { error } = await supabase.auth.signOut(token);
         
         if (error) {
-            return res.status(400).json({
-                success: false,
-                error: error.message
+            return res.status(400).json({ 
+                success: false, 
+                error: error.message 
             });
         }
         
-        res.json({
-            success: true,
-            message: '登出成功'
+        res.json({ 
+            success: true, 
+            message: '登出成功' 
         });
         
     } catch (error) {
         console.error('登出失敗:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
         });
     }
 });
 
-// 註冊新用戶（可選）
-app.post('/api/auth/signup', async (req, res) => {
+// ===== 後台同步路由 =====
+app.post('/api/sync', async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { tables } = req.body;
         
-        if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                error: '請提供電子郵件和密碼'
+        if (!tables || !Array.isArray(tables)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少 tables 資料' 
             });
         }
         
-        // 使用 Supabase 註冊新用戶
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password
-        });
+        const results = [];
         
-        if (error) {
-            return res.status(400).json({
-                success: false,
-                error: error.message
-            });
+        for (const tableData of tables) {
+            const { tableName, folder, rows } = tableData;
+            
+            if (!tableName || !folder || !rows) {
+                results.push({
+                    table: tableName || 'unknown',
+                    success: false,
+                    error: '缺少必要欄位'
+                });
+                continue;
+            }
+            
+            try {
+                // 1. 刪除多餘資料
+                const { data: serverRows } = await supabase
+                    .from(tableName)
+                    .select('id');
+                
+                if (serverRows) {
+                    const serverIds = serverRows.map(r => r.id);
+                    const localIds = rows.map(r => r.id);
+                    const deleteIds = serverIds.filter(id => !localIds.includes(id));
+                    
+                    if (deleteIds.length > 0) {
+                        await supabase
+                            .from(tableName)
+                            .delete()
+                            .in('id', deleteIds);
+                    }
+                }
+                
+                // 2. Upsert 資料
+                const upsertData = rows.map(row => ({
+                    id: row.id,
+                    name: row.name,
+                    feature: row.feature,
+                    price: row.price,
+                    quantity: row.quantity,
+                    jarr: row.jarr,
+                    hot: row.hot
+                }));
+                
+                await supabase
+                    .from(tableName)
+                    .upsert(upsertData, { onConflict: ['id'] });
+                
+                results.push({
+                    table: tableName,
+                    success: true,
+                    message: `已同步 ${rows.length} 筆資料`
+                });
+                
+            } catch (error) {
+                console.error(`同步 ${tableName} 失敗:`, error);
+                results.push({
+                    table: tableName,
+                    success: false,
+                    error: error.message
+                });
+            }
         }
+        
+        // 檢查是否有失敗的同步
+        const hasError = results.some(r => !r.success);
         
         res.json({
-            success: true,
-            message: '註冊成功，請檢查電子郵件進行驗證',
-            user: {
-                id: data.user.id,
-                email: data.user.email
-            }
+            success: !hasError,
+            message: hasError ? '部分同步失敗' : '同步成功',
+            results: results
         });
         
     } catch (error) {
-        console.error('註冊失敗:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message
+        console.error('同步失敗:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
         });
     }
 });
