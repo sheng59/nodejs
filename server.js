@@ -81,7 +81,7 @@ app.get('/api/products', async(req, res) => {
 		res.json({
 			success: true,
 			allProducts,
-			count: object.values(allProducts).reduce((sum, arr) => sum + arr.length, 0)
+			count: Object.values(allProducts).reduce((sum, arr) => sum + arr.length, 0)
 		});
 		
 	} catch(error) {
@@ -367,7 +367,7 @@ app.get('/api/orders/:id', async (req, res) => {
         }
 
         // 取得訂單項目
-        const {  items, error: itemsError } = await supabase
+        const {  data: items, error: itemsError } = await supabase
             .from('order_items')
             .select('*')
             .eq('order_id', order.id);
