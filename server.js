@@ -41,13 +41,13 @@ app.get('/', (req, res) => {
 			'GET /api/products/hot': '取得熱門商品',
 			'GET /api/products/search': '搜尋商品',
 			'GET /api/products/:category': '取得特定類別商品',
-			'PUT　/api/products/:category/:id/stock': '搜尋商品'
+			'PUT　/api/products/:category/:id/stock': '搜尋商品',
 			'POST /api/orders': '建立訂單',
 			'GET /api/orders/:id': '取得訂單資訊',
 			'GET /api/orders': '取得所有訂單',
 			'POST /api/line/test': '測試LINE訊息',
 			'POST /api/sync': '資料庫同步',
-			'GET /api/backend/products': '取得後台商品列表',
+			'GET /api/backend/products': '取得後台商品列表'
 		}
 	});
 });
