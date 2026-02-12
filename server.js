@@ -8,6 +8,8 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 
 // ===== 設定 =====
+const PORT = process.env.PORT;
+
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://yvemaakibhtbtohrenjc.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2ZW1hYWtpYmh0YnRvaHJlbmpjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTg1ODY2MywiZXhwIjoyMDcxNDM0NjYzfQ.q_HbjUVdXvM4U9LGuyUmk_NjiKFegG3Re5ydTTYdQi8";
 const CHANNEL_ACCESS_TOKEN = process.env.CHANNEL_ACCESS_TOKEN || "N03jvw1MeewY85pihAGpGZXPaHCHFfRmxY07hDB++uF9sg4Eh9jrkVZZcjzDpbUl5pFu5gtltDeIStWx51Yq/y7yJvV9MIjzPSVXgH8my95amCvbxNTGBG6jqEQS5t1QtNcSunhidGM+hFNOmQ6bAAdB04t89/1O/w1cDnyilFU=";
@@ -39,12 +41,13 @@ app.get('/', (req, res) => {
 			'GET /api/products/hot': '取得熱門商品',
 			'GET /api/products/search': '搜尋商品',
 			'GET /api/products/:category': '取得特定類別商品',
+			'PUT　/api/products/:category/:id/stock': '搜尋商品'
 			'POST /api/orders': '建立訂單',
 			'GET /api/orders/:id': '取得訂單資訊',
 			'GET /api/orders': '取得所有訂單',
 			'POST /api/line/test': '測試LINE訊息',
 			'POST /api/sync': '資料庫同步',
-			'PUT　/api/products/:category/:id/stock': '搜尋商品'
+			'GET /api/backend/products': '取得後台商品列表',
 		}
 	});
 });
@@ -701,9 +704,42 @@ app.put('/api/products/:category/:id/stock', async (req, res) => {
     }
 });
 
+app.get('/api/backend/products', async (req, res) => {
+	try {
+		const tables = ['mirror', 'magnet', 'coaster', 'wood', 'painting'];
+        const products = {};
+        
+        for (const table of tables) {
+            const { data, error } = await supabase
+                .from(table)
+                .select('*')
+                .order('id', { ascending: true });
+                
+            if (error) {
+                console.error(`讀取 ${table} 失敗:`, error);
+                continue;
+            }
+            
+            products[table] = data;
+        }
+        
+        res.json({
+            success: true,
+            products,
+            count: Object.values(products).reduce((sum, arr) => sum + arr.length, 0)
+        });
+		
+	} catch (error) {
+		console.error('取得後台商品失敗:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+	}
+});
 
-/*app.listen(PORT, () => {
-  console.log(`Server running on port:${3000}/`)
-})*/
+app.listen(PORT, () => {
+  console.log(`Server running on port:${PORT}/`)
+})
 
 module.exports = app;
